@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT">
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="实验目的基于3台服务器，用spark, kafka, zookeeper和mysql，设计一个分布式的交易系统，包括处理订单，实时更新汇率，记录交易总额功能；在实验中去学习和熟练使用以上三种分布式框架，以便更好的了解分布式计算原理，以及当前工业界的分布式解决方案。 服务器集群配置 ubuntu 16.4 8GB DRAM 4core     服务器 zookeeper kafka spark">
+<meta property="og:type" content="article">
+<meta property="og:title" content="spark+kafka+zookeeper+mysql集成部署测试">
+<meta property="og:url" content="http://yoursite.com/2019/07/18/spark-kafka-zookeeper-mysql集成部署测试/index.html">
+<meta property="og:site_name" content="CJT的博客">
+<meta property="og:description" content="实验目的基于3台服务器，用spark, kafka, zookeeper和mysql，设计一个分布式的交易系统，包括处理订单，实时更新汇率，记录交易总额功能；在实验中去学习和熟练使用以上三种分布式框架，以便更好的了解分布式计算原理，以及当前工业界的分布式解决方案。 服务器集群配置 ubuntu 16.4 8GB DRAM 4core     服务器 zookeeper kafka spark">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2019-07-18T12:14:53.073Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="spark+kafka+zookeeper+mysql集成部署测试">
+<meta name="twitter:description" content="实验目的基于3台服务器，用spark, kafka, zookeeper和mysql，设计一个分布式的交易系统，包括处理订单，实时更新汇率，记录交易总额功能；在实验中去学习和熟练使用以上三种分布式框架，以便更好的了解分布式计算原理，以及当前工业界的分布式解决方案。 服务器集群配置 ubuntu 16.4 8GB DRAM 4core     服务器 zookeeper kafka spark">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2019/07/18/spark-kafka-zookeeper-mysql集成部署测试/">
+
+
+
+
+
+  <title>spark+kafka+zookeeper+mysql集成部署测试 | CJT的博客</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">CJT的博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">upside down world</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/18/spark-kafka-zookeeper-mysql集成部署测试/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="CJT">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="CJT的博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">spark+kafka+zookeeper+mysql集成部署测试</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-07-18T20:08:09+08:00">
+                2019-07-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="实验目的"><a href="#实验目的" class="headerlink" title="实验目的"></a>实验目的</h3><p>基于3台服务器，用spark, kafka, zookeeper和mysql，设计一个分布式的交易系统，包括处理订单，实时更新汇率，记录交易总额功能；在实验中去学习和熟练使用以上三种分布式框架，以便更好的了解分布式计算原理，以及当前工业界的分布式解决方案。</p>
+<h3 id="服务器集群"><a href="#服务器集群" class="headerlink" title="服务器集群"></a>服务器集群</h3><h4 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h4><ul>
+<li>ubuntu 16.4</li>
+<li>8GB DRAM</li>
+<li>4core</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>服务器</th>
+<th>zookeeper</th>
+<th>kafka</th>
+<th>spark</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>10.0.0.166</td>
+<td>✔</td>
+<td>✔</td>
+<td>master</td>
+</tr>
+<tr>
+<td>10.0.0.111</td>
+<td>✔</td>
+<td>✔</td>
+<td>slave</td>
+</tr>
+<tr>
+<td>10.0.0.64</td>
+<td>✔</td>
+<td>✔</td>
+<td>slave</td>
+</tr>
+</tbody></table>
+<h3 id="环境配置"><a href="#环境配置" class="headerlink" title="环境配置"></a>环境配置</h3><h4 id="安装kafka"><a href="#安装kafka" class="headerlink" title="安装kafka"></a>安装kafka</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">wget http://官网最新版本.tgz #此处下载的是2.3.0版本</span><br><span class="line">tar zxvf kafka_2.11-2.3.0.tgz</span><br><span class="line">cd &lt;kafka目录&gt;</span><br></pre></td></tr></table></figure>
+
+<p>配置zookeeper, 修改config/zookeeper.properties</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">tickTime=2000</span><br><span class="line">dataDir=/home/fams/zk_data/</span><br><span class="line">clientPort=2181</span><br><span class="line">initLimit=5</span><br><span class="line">syncLimit=2</span><br><span class="line">server.1=xxx.xxx.xxx.xxx:2888:3888</span><br><span class="line">server.2=xxx.xxx.xxx.xxx:2888:3888</span><br><span class="line">server.3=xxx.xxx.xxx.xxx:2888:3888</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>tickTime：zookeeper 服务器之间的心跳时间间隔，以毫秒为单位。</li>
+<li>dataDir：zookeeper 的数据保存目录，我们也把 zookeeper 服务器的 ID 文件保存到这个目录下，下文会介绍。</li>
+<li>clientPort：zookeeper 服务器会监听这个端口，然后等待客户端连接。</li>
+<li>initLimit：zookeeper 集群中 follower 服务器和 leader 服务器之间建立初始连接时所能容忍的心跳次数的极限值。</li>
+<li>syncLimit：zookeeper 集群中 follower 服务器和 leader 服务器之间请求和应答过程中所能容忍的心跳次数的极限值。</li>
+<li>server.N：N 代表的是 zookeeper 集群服务器的编号。对于配置值，以 192.168.1.1:2888:3888 为例，192.168.1.1 表示该服务器的 IP 地址，2888 端口表示该服务器与 leader 服务器的数据交换端口，3888 表示选举新的 leader 服务器时候用到的通信端口。</li>
+</ul>
+<p>配置kafka, 修改config/server.properties</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">broker.id=0 #三台服务器分别为0 1 2</span><br><span class="line">port=9092</span><br><span class="line">host.name=xxx.xxx.xxx.xxx</span><br><span class="line">zookeeper.contact=xxx.xxx.xxx.xxx:2181,xxx.xxx.xxx.xxx:2181,xxx.xxx.xxx.xxx:2181</span><br><span class="line">log.dirs=/your/logs/kafka-logs</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>broker.id：Kafka broker 的唯一标识，集群中不能重复。</li>
+<li>port: Broker 的监听端口，用于监听 Producer 或者 Consumer 的连接。</li>
+<li>host.name:当前 Broker 服务器的 IP 地址或者机器名。</li>
+<li>zookeeper.contact:Broker 作为 zookeeper 的 client，可以连接的 zookeeper 的地址信息。</li>
+<li>log.dirs：日志保存目录。</li>
+</ul>
+<p>修改config/producer.properties</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">broker.list=xxx.xxx.xxx.xxx:9092,xxx.xxx.xxx.xxx:9092,xxx.xxx.xxx.xxx:9092</span><br><span class="line">producer.type=async</span><br></pre></td></tr></table></figure>
+
+<p>修改config/consumer.properties</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">zookeeper.contact=192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181</span><br></pre></td></tr></table></figure>
+
+<p>把配置好的kafka目录打包，并且用sco上传到另外两台服务器。</p>
+<p>启动zookeeper</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nohup bin/zookeeper-server-start.sh config/zookeeper.properties &amp;</span><br></pre></td></tr></table></figure>
+
+<p>启动kafka</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nohup bin/kafka-server-start.sh config/server.properties &amp;</span><br></pre></td></tr></table></figure>
+
+<p>创建消息主题</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bin/kafka-topics.sh --create \</span><br><span class="line">--replication-factor 3 \</span><br><span class="line">--partition 3 \</span><br><span class="line">--topic user-behavior-topic \</span><br><span class="line">--zookeeper 192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181</span><br></pre></td></tr></table></figure>
+
+<h4 id="安装spark"><a href="#安装spark" class="headerlink" title="安装spark"></a>安装spark</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget http://mirrors.tuna.tsinghua.edu.cn/apache/spark/spark-2.4.3/spark-2.4.3-bin-hadoop2.7.tgz</span><br><span class="line">tar zxvf spark-2.4.3-bin-hadoop2.7.tgz -C ~/soft</span><br></pre></td></tr></table></figure>
+
+<p>修改 conf/slaves</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">10.0.0.166</span><br><span class="line">10.0.0.111</span><br><span class="line">10.0.0.64</span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">提交应用</span><br></pre></td></tr></table></figure>
+
+<p>spark-submit –master spark://[master-node]:7077 [yourapp].jar<br>```</p>
+<h3 id="mysql"><a href="#mysql" class="headerlink" title="mysql"></a>mysql</h3><ul>
+<li>安装mysql，并设定root用户及其密码</li>
+<li>修改mysql的配置文件，允许另外两台服务器登录并访问修改数据。修改root允许的ip，允许另外两台机器可以以root身份登录mysql</li>
+<li>mysql单一部署在master上。</li>
+</ul>
+<h3 id="程序设计"><a href="#程序设计" class="headerlink" title="程序设计"></a>程序设计</h3><ul>
+<li><p>WebApp.java: 实现了一个轻量级的http server，用来处理请求，对于订单请求通过post的方式传递数据，然后用kafka的producer.send()将数据消息发送到指定的topic</p>
+</li>
+<li><p>Reciever.java: 用spark strinming来读取kafka producer发送到指定topic的数据，并分发带各个服务器进行处理并返回结果。</p>
+</li>
+<li><p>Distributedock.java：基于zookeeper节点实现的分布式锁，设计来源于链式锁，每个节点只需要监控前一个节点即可，节点放锁后唤醒下一个锁。</p>
+</li>
+<li><ul>
+<li>分布式锁实现：首先有个根路径，所有节点都在根路径下，每个商品的节点为/root/ + 商品id，</li>
+</ul>
+</li>
+<li><ul>
+<li>每个商品可能会产生多个节点，用”/root/ + 商品id + /lock-顺序生成数”表示</li>
+</ul>
+</li>
+<li><ul>
+<li>对每个商品进行操作前，需要先拿到锁，如果当前节点为该商品下的最小节点则直接获取锁，</li>
+</ul>
+</li>
+<li><ul>
+<li>否则监听并等待前一个节点，放锁即删除当前节点。</li>
+</ul>
+</li>
+<li><p>ExchangeRate：用zookeeper节点保存各种货币的汇率以及每种货币的交易总量。</p>
+</li>
+<li><p>Commodity.java，Result.java：两个mysql的实体类，用于hibernate操作数据库</p>
+</li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/07/18/hello-world/" rel="next" title="Hello World">
+                <i class="fa fa-chevron-left"></i> Hello World
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="CJT">
+            
+              <p class="site-author-name" itemprop="name">CJT</p>
+              <p class="site-description motion-element" itemprop="description">独立开发者 NBA<br>C/C++ 虚拟化</p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">2</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+
+            
+
+          </nav>
+
+          
+
+          
+            <div class="links-of-author motion-element">
+                
+                  <span class="links-of-author-item">
+                    <a href="https://github.com/CJTSAJ" target="_blank" title="GitHub">
+                      
+                        <i class="fa fa-fw fa-github"></i>GitHub</a>
+                  </span>
+                
+                  <span class="links-of-author-item">
+                    <a href="mailto:997149731@qq.com" target="_blank" title="邮箱">
+                      
+                        <i class="fa fa-fw fa-envelope"></i>邮箱</a>
+                  </span>
+                
+            </div>
+          
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#实验目的"><span class="nav-number">1.</span> <span class="nav-text">实验目的</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#服务器集群"><span class="nav-number">2.</span> <span class="nav-text">服务器集群</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#配置"><span class="nav-number">2.1.</span> <span class="nav-text">配置</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#环境配置"><span class="nav-number">3.</span> <span class="nav-text">环境配置</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#安装kafka"><span class="nav-number">3.1.</span> <span class="nav-text">安装kafka</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#安装spark"><span class="nav-number">3.2.</span> <span class="nav-text">安装spark</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mysql"><span class="nav-number">4.</span> <span class="nav-text">mysql</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#程序设计"><span class="nav-number">5.</span> <span class="nav-text">程序设计</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">CJT</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.4</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
